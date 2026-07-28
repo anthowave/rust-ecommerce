@@ -1,0 +1,61 @@
+[package]
+name = "product-service"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+# KEY LESSON: Binary crate
+# ==========================
+# This is a binary crate because it has no explicit [[bin]] section
+# but has a `src/main.rs` file. Cargo automatically detects this.
+# Alternatives:
+#   - Explicit: [[bin]] name = "product-service" path = "src/main.rs"
+#   - Multiple binaries: multiple [[bin]] sections with different names
+#   - Compare to: Go `package main` with `func main()`, C++ `int main()` in a .cpp file
+
+[[bin]]
+name = "product-service"
+path = "src/main.rs"
+
+[dependencies]
+# --- Internal ---
+# KEY LESSON: Internal workspace members use `path =`, not `workspace = true`.
+# `workspace = true` is for inheriting VERSION from [workspace.dependencies].
+# For internal crates (members of the same workspace), use `path = "../crate-name"`.
+# This is like Go's replace directives in go.mod, or npm workspaces.
+common = { path = "../common" }
+
+# --- Web framework ---
+axum.workspace = true
+tower.workspace = true
+tower-http.workspace = true
+
+# --- Database ---
+sqlx.workspace = true
+
+# --- Serialization ---
+serde.workspace = true
+serde_json.workspace = true
+
+# --- Logging ---
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+# --- Error handling ---
+thiserror.workspace = true
+anyhow.workspace = true
+
+# --- Utilities ---
+uuid.workspace = true
+chrono.workspace = true
+dotenvy.workspace = true
+config.workspace = true
+
+# --- Validation ---
+validator.workspace = true
+
+# --- Async runtime ---
+tokio.workspace = true
+
+# --- Money handling ---
+rust_decimal.workspace = true

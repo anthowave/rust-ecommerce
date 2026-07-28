@@ -1,0 +1,52 @@
+[package]
+name = "common"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+# KEY LESSON: Library vs Binary crate
+# =====================================
+# This is a "lib" crate (no [[bin]] section). It produces a .rlib file
+# that other crates can depend on. It cannot be run directly with `cargo run`.
+# Compare to: Go packages (importable), C++ static libraries (.a), JS npm packages.
+#
+# In Cargo.toml:
+#   - No [[bin]] section → library crate
+#   - [[bin]] section present → binary crate
+#   - Both can exist → mixed crate (lib + bin in same package)
+
+[dependencies]
+# We use `workspace = true` to inherit versions from the root Cargo.toml.
+# This ensures all crates use the same version of each dependency.
+# Compare to: Go workspaces (go.work), JS monorepo with root package.json resolutions.
+
+# --- Web framework types (for shared middleware/extractors) ---
+axum.workspace = true
+tower.workspace = true
+
+# --- Serialization ---
+serde.workspace = true
+serde_json.workspace = true
+
+# --- Error handling ---
+thiserror.workspace = true
+
+# --- Utilities ---
+uuid.workspace = true
+chrono.workspace = true
+
+# --- JWT (for shared auth middleware) ---
+jsonwebtoken.workspace = true
+
+# --- Database (for shared error types) ---
+sqlx.workspace = true
+
+# --- Decimal (for money handling in shared models) ---
+rust_decimal.workspace = true
+
+# --- Error handling ---
+anyhow.workspace = true
+
+# --- Async runtime (needed for async traits) ---
+tokio.workspace = true
+async-trait.workspace = true
