@@ -1,0 +1,36 @@
+[package]
+name = "user-service"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+# Shared library
+common = { path = "../common" }
+
+# Workspace dependencies (versions managed in root Cargo.toml)
+tokio = { workspace = true }
+axum = { workspace = true }
+tower = { workspace = true }
+tower-http = { workspace = true }
+sqlx = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+dotenvy = { workspace = true }
+config = { workspace = true }
+validator = { workspace = true }
+
+# Phase 2 specific: auth crates
+argon2 = { workspace = true }
+jsonwebtoken = { workspace = true }
+async-trait = { workspace = true }
+redis = { workspace = true }
+
+# SHA-256 for token hashing
+sha2 = "0.10"

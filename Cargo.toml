@@ -6,6 +6,7 @@ resolver = "2"
 members = [
     "crates/common",
     "crates/product-service",
+    "crates/user-service",
 ]
 
 [workspace.package]
