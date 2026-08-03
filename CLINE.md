@@ -99,11 +99,36 @@ See `LEARNING_PLAN.md` for the full phased plan.
 
 ## Pending Phases
 
-### Phase 3: Shopping Cart Service (Next)
-- State management & concurrency: `Arc<Mutex<T>>`, `tokio::sync::RwLock`, `DashMap`
-- Interior mutability patterns
-- New Rust concepts: `Mutex<T>` owns data (can't access without locking), `tokio::sync::RwLock` vs `std::sync::RwLock`
-- See `LEARNING_PLAN.md` Phase 3 section for details
+### Phase 3: Shopping Cart Service ✅
+- **Commit:** `9b52bba`
+- **Status:** Complete — builds successfully, 31 tests pass workspace-wide (11 cart-service + 11 common + 3 product-service + 6 user-service)
+- **What was built:**
+  - In-memory cart store using `Arc<RwLock<HashMap<Uuid, Cart>>>` — NO database, pure memory
+  - Full CRUD API: GET /cart, POST /cart/items, PUT /cart/items/:product_id, DELETE /cart/items/:product_id, DELETE /cart, GET /health
+  - JWT auth middleware (reused pattern from user-service) — all cart routes require valid JWT
+  - CartItem model: product_id, name (denormalized), unit_price, quantity, added_at
+  - Cart model: user_id, items, updated_at, total calculation
+  - CartStore methods: get_cart, get_or_create_cart, add_item (with quantity increment), update_quantity (remove on 0), remove_item, clear_cart
+  - Response DTOs: CartResponse, CartItemResponse with camelCase JSON serialization
+  - Service-specific CartError enum with IntoResponse (CartNotFound, ItemNotFound, InsufficientStock, ValidationError, Unauthorized, Internal)
+- **API Endpoints:**
+  | Method | Path | Auth | Description |
+  |--------|------|------|-------------|
+  | GET | /cart | Yes | Get current user's cart (auto-creates if empty) |
+  | POST | /cart/items | Yes | Add item to cart (increments if exists) |
+  | PUT | /cart/items/:product_id | Yes | Update item quantity (0 = remove) |
+  | DELETE | /cart/items/:product_id | Yes | Remove item from cart |
+  | DELETE | /cart | Yes | Clear entire cart |
+  | GET | /health | No | Health check |
+- **Key concepts covered:**
+  - **Interior Mutability:** `RwLock<T>` lets you mutate through `&T` — borrow check moves to runtime
+  - **`Mutex<T>` owns data:** Unlike Go (separate mutex + data), Rust's `RwLock<T>` WRAPS the data — you CANNOT access T without locking. Compiler enforced.
+  - **`tokio::sync::RwLock` vs `std::sync::RwLock`:** Tokio's version is async-aware — `.read().await` yields instead of blocking the OS thread. Critical distinction for async code.
+  - **RAII Lock Guards:** `.read().await` returns `RwLockReadGuard` — auto-unlocks when guard drops. No `defer mutex.RUnlock()` needed (unlike Go).
+  - **`Arc::clone()` is cheap:** Only bumps an atomic counter — doesn't copy the HashMap. This is why passing `CartStore` to Axum State works.
+  - **Read-then-write pattern:** `get_or_create_cart` uses read lock first (fast path), write lock only if create needed (slow path). Minimizes contention.
+  - **`#[tokio::test]`:** Async tests need Tokio runtime — `#[tokio::test]` provides it (unlike `#[test]` for sync tests)
+  - **Arc move-after-borrow bug (again!):** Same ownership lesson from Phase 2 — `state` moved into `create_router()` then used after move. Fix: `state.clone()` (cheap Arc refcount bump)
 
 ### Phase 4-10
 (Not yet started — see `LEARNING_PLAN.md`)
@@ -111,6 +136,7 @@ See `LEARNING_PLAN.md` for the full phased plan.
 ## Git Log
 
 ```
+9b52bba Phase 3: Shopping Cart Service — Interior Mutability & Concurrency (Arc<RwLock<HashMap>>)
 4bbd759 Phase 2 (Steps 5-7): Auth middleware (Tower Layer), handlers (register/login/refresh/logout/get_me/update_me/get_user), routes (public + protected with JWT middleware) — complete User Service
 673c041 Phase 2 (Step 4): Auth module — Argon2 password hashing, JWT encode/decode/validate, SHA-256 token hashing, 5 unit tests
 0b79a5c Phase 2 (Step 3): User model with DB queries — UserRole enum, DTOs, QueryBuilder, refresh token ops
