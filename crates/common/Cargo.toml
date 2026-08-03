@@ -38,7 +38,7 @@ chrono.workspace = true
 # --- JWT (for shared auth middleware) ---
 jsonwebtoken.workspace = true
 
-# --- Database (for shared error types) ---
+# --- Database (for shared error types and IntoResponse) ---
 sqlx.workspace = true
 
 # --- Decimal (for money handling in shared models) ---
@@ -46,6 +46,9 @@ rust_decimal.workspace = true
 
 # --- Error handling ---
 anyhow.workspace = true
+
+# --- Logging (for IntoResponse impl) ---
+tracing.workspace = true
 
 # --- Async runtime (needed for async traits) ---
 tokio.workspace = true

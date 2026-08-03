@@ -69,26 +69,63 @@ pub enum AppError {
 
 // KEY LESSON: Implementing Axum's IntoResponse for our error type
 // ================================================================
-// This allows AppError to be returned directly from Axum handlers.
-// Axum will automatically convert it to an HTTP response with the correct status code.
+// We implement IntoResponse HERE (in the common crate where AppError is defined)
+// because of Rust's ORPHAN RULE: you can't implement a foreign trait (IntoResponse
+// from axum) for a foreign type (AppError from common) in a third crate.
+// The implementation must be in the same crate as EITHER the trait OR the type.
+//
+// Since AppError is our type (in common), we implement IntoResponse here.
+// Every service uses this single implementation. No duplicate code.
+//
 // This is the Rust equivalent of exception-to-HTTP mapping in Spring Boot or
 // error handling middleware in Express.js — but it's type-safe and explicit.
-//
-// We'll implement this in Phase 1 when we set up Axum.
-// For now, this is a placeholder showing the pattern.
-impl AppError {
-    /// Returns the HTTP status code for this error.
-    pub fn status_code(&self) -> axum::http::StatusCode {
-        use axum::http::StatusCode;
-        match self {
-            AppError::NotFound { .. } => StatusCode::NOT_FOUND,
-            AppError::ValidationError(_) => StatusCode::UNPROCESSABLE_ENTITY,
-            AppError::DatabaseError(_) => StatusCode::INTERNAL_SERVER_ERROR,
-            AppError::Unauthorized(_) => StatusCode::UNAUTHORIZED,
-            AppError::Forbidden(_) => StatusCode::FORBIDDEN,
-            AppError::ExternalServiceError(_) => StatusCode::BAD_GATEWAY,
-            AppError::InternalError(_) => StatusCode::INTERNAL_SERVER_ERROR,
-        }
+use axum::Json;
+use axum::http::StatusCode;
+use axum::response::{IntoResponse, Response};
+use serde_json::json;
+use tracing::error;
+
+impl IntoResponse for AppError {
+    fn into_response(self) -> Response {
+        let (status, message) = match &self {
+            AppError::NotFound { entity, id } => {
+                let msg = format!("{entity} with id {id} not found");
+                (StatusCode::NOT_FOUND, msg)
+            }
+            AppError::ValidationError(msg) => (StatusCode::UNPROCESSABLE_ENTITY, msg.clone()),
+            AppError::DatabaseError(_) => {
+                error!(error = %self, "Database error occurred");
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "Internal server error".to_string(),
+                )
+            }
+            AppError::Unauthorized(msg) => (StatusCode::UNAUTHORIZED, msg.clone()),
+            AppError::Forbidden(msg) => (StatusCode::FORBIDDEN, msg.clone()),
+            AppError::ExternalServiceError(_msg) => {
+                error!(error = %self, "External service error");
+                (
+                    StatusCode::BAD_GATEWAY,
+                    "External service temporarily unavailable".to_string(),
+                )
+            }
+            AppError::InternalError(_) => {
+                error!(error = %self, "Internal error occurred");
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "Internal server error".to_string(),
+                )
+            }
+        };
+
+        let body = json!({
+            "error": {
+                "message": message,
+                "status": status.as_u16(),
+            }
+        });
+
+        (status, Json(body)).into_response()
     }
 }
 
