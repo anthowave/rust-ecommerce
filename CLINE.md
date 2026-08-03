@@ -57,19 +57,64 @@ See `LEARNING_PLAN.md` for the full phased plan.
   - `Default` derive for config structs
   - `serde` annotations (`#[serde(default)]`, `rename_all = "snake_case"`)
 
+### Phase 2: User Service — Authentication & Authorization ✅
+- **Commits:** `628c142`, `0b79a5c`, `673c041`, `4bbd759`
+- **Status:** Complete — builds successfully, 20 tests pass (6 user-service + 11 common + 3 product-service)
+- **What was built:**
+  - **Database Migration:** `users` table with `password_hash` (Argon2), `user_role` Postgres enum, soft delete; `refresh_tokens` table with FK to users, token hash storage
+  - **Crate Scaffold:** `Cargo.toml` with argon2, jsonwebtoken, sha2, validator, redis; `main.rs` with `AppState`, `shutdown_signal`; `config.rs` with JWT settings; `db.rs` with pool builder
+  - **Models:** `User` struct with `#[serde(skip)]` on `password_hash`; `UserRole` enum with `sqlx::Type` for Postgres enum mapping; DTOs (`UserResponse`, `CreateUserRequest`, `LoginRequest`, `UpdateUserRequest`, `AuthResponse`, `RefreshTokenRequest`); DB query functions (`create_user`, `find_user_by_email`, `find_user_by_id`, `update_user` with `QueryBuilder`, `soft_delete_user`, `store_refresh_token`, `find_refresh_token`, `revoke_user_tokens`)
+  - **Auth Module:** Argon2 password hashing (`hash_password`, `verify_password`); JWT encode/decode (`create_access_token`, `create_refresh_token`, `validate_token`); SHA-256 token hashing for refresh token storage
+  - **Auth Middleware:** Tower Layer via `axum::middleware::from_fn_with_state`; extracts `Authorization: Bearer <token>` header; validates JWT; injects `AuthUser` into request extensions (type-safe!)
+  - **Handlers:** `register` (POST /auth/register), `login` (POST /auth/login), `refresh` (POST /auth/refresh with token rotation), `logout` (POST /auth/logout), `get_me` (GET /users/me), `update_me` (PUT /users/me), `get_user` (GET /users/:id)
+  - **Routes:** Public (register, login, refresh, get_user, health) + Protected (logout, get_me, update_me) with JWT middleware; `TraceLayer` for request logging
+- **API Endpoints:**
+  | Method | Path | Auth | Description |
+  |--------|------|------|-------------|
+  | POST | /auth/register | No | Register new user |
+  | POST | /auth/login | No | Login, returns JWT tokens |
+  | POST | /auth/refresh | No | Refresh access token |
+  | POST | /auth/logout | Yes | Invalidate tokens |
+  | GET | /users/me | Yes | Get current user profile |
+  | PUT | /users/me | Yes | Update profile |
+  | GET | /users/:id | No | Get public user profile |
+  | GET | /health | No | Health check |
+- **Rust Concepts Taught:**
+  - **Lifetimes:** Claims struct uses owned `String` (not `&str`) — why lifetimes exist and when to avoid them
+  - **`String` vs `&str`:** Config stores `String` (owns data), functions accept `&str` (borrows); hands-on ownership lesson from the ownership error in main.rs
+  - **`Clone` vs `Copy`:** `Settings` derives `Clone` but NOT `Copy` — heap data can't be implicitly copied; `Arc::clone()` is cheap (atomic counter bump)
+  - **`impl Into<String>`:** `create_access_token()` accepts both `&str` and `String` via trait bounds
+  - **Tower Middleware (Layers):** `from_fn_with_state` creates a Tower Layer from an async function; route-layered auth; type-safe request extensions for `AuthUser`
+  - **`async-trait`:** Not needed — all our traits were simple enough. Noted as a future concept.
+  - **Argon2:** Modern password hashing (memory-hard, GPU/ASIC resistant); salt auto-embedded in PHC format hash string
+  - **JWT:** `jsonwebtoken` crate — encode with `EncodingKey`, decode with `DecodingKey`, `Validation::default()`
+  - **Refresh token rotation:** Old token revoked on refresh; token hash stored in DB (not raw token)
+  - **Validator crate:** Declarative input validation with `#[validate(email)]`, `#[validate(length(min = 8))]`
+  - **Postgres enum mapping:** `#[derive(sqlx::Type)]` + `#[sqlx(type_name = "user_role")]`
+  - **`From<T>` trait:** `impl From<User> for UserResponse` for clean `.into()` conversions
+  - **Request Extensions:** Type-safe per-request storage — middleware inserts `AuthUser`, handlers extract it
+  - **`#[serde(skip)]`:** Defense-in-depth to prevent password hash leakage
+  - **Trait scope:** `Validate::validate()` requires `use validator::Validate` — unlike Go, trait methods only available when trait is in scope
+- **Key bug/lesson:** `Arc` move-after-borrow error — Rust's ownership system caught us trying to use `state` after moving it into `create_router()`. Fix: `state.clone()` (cheap Arc refcount bump).
+
 ## Pending Phases
 
-### Phase 2: User Service (Next)
-- Authentication (JWT, Argon2 password hashing)
-- New Rust concepts: lifetimes, `String` vs `&str`, `Clone` vs `Copy`, Tower middleware, JWT
-- See `LEARNING_PLAN.md` Phase 2 section for details
+### Phase 3: Shopping Cart Service (Next)
+- State management & concurrency: `Arc<Mutex<T>>`, `tokio::sync::RwLock`, `DashMap`
+- Interior mutability patterns
+- New Rust concepts: `Mutex<T>` owns data (can't access without locking), `tokio::sync::RwLock` vs `std::sync::RwLock`
+- See `LEARNING_PLAN.md` Phase 3 section for details
 
-### Phase 3-10
+### Phase 4-10
 (Not yet started — see `LEARNING_PLAN.md`)
 
 ## Git Log
 
 ```
+4bbd759 Phase 2 (Steps 5-7): Auth middleware (Tower Layer), handlers (register/login/refresh/logout/get_me/update_me/get_user), routes (public + protected with JWT middleware) — complete User Service
+673c041 Phase 2 (Step 4): Auth module — Argon2 password hashing, JWT encode/decode/validate, SHA-256 token hashing, 5 unit tests
+0b79a5c Phase 2 (Step 3): User model with DB queries — UserRole enum, DTOs, QueryBuilder, refresh token ops
+628c142 Phase 2 (Step 1-2): User Service scaffold — migration, config, db, error, models, middleware stubs, handlers stubs, routes stub
 9f75ad1 Phase 1: Product Catalog Service — CRUD API with Axum, SQLx, tracing
 67fecde Setup: Cline memory bank (CLINE.md) and teaching rules (.clinerules)
 a37e354 Phase 0: Rust Bootcamp
